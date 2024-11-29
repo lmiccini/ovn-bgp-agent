@@ -19,6 +19,7 @@ from ovn_bgp_agent import constants
 from ovn_bgp_agent.drivers.openstack.utils import driver_utils
 from ovn_bgp_agent.drivers.openstack.utils import evpn
 from ovn_bgp_agent.drivers.openstack.utils import frr
+from ovn_bgp_agent.drivers.openstack.utils import frrk8s
 from ovn_bgp_agent.utils import linux_net
 
 
@@ -67,7 +68,7 @@ def withdraw_ips(port_ips, ips_info=None):
     linux_net.del_ips_from_dev(CONF.bgp_nic, port_ips)
 
 
-def ensure_base_bgp_configuration(template=frr.LEAK_VRF_TEMPLATE):
+def ensure_base_bgp_configuration(template=frrk8s.LEAK_VRF_TEMPLATE):
     if CONF.exposing_method not in [constants.EXPOSE_METHOD_UNDERLAY,
                                     constants.EXPOSE_METHOD_DYNAMIC,
                                     constants.EXPOSE_METHOD_OVN]:
@@ -78,10 +79,10 @@ def ensure_base_bgp_configuration(template=frr.LEAK_VRF_TEMPLATE):
 
     # If we expose subnet routes, we should add kernel routes too.
     if CONF.advertisement_method_tenant_networks == 'subnet':
-        frr.set_default_redistribute(['connected', 'kernel'])
+        frrk8s.set_default_redistribute(['connected', 'kernel'])
 
     # Ensure FRR is configure to leak the routes
-    frr.vrf_leak(CONF.bgp_vrf, CONF.bgp_AS, CONF.bgp_router_id,
+    frrk8s.vrf_leak(CONF.bgp_vrf, CONF.bgp_AS, CONF.bgp_router_id,
                  template=template)
 
     # Create OVN dummy device

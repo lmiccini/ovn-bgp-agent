@@ -23,6 +23,7 @@ from oslo_log import log as logging
 from ovn_bgp_agent import constants
 from ovn_bgp_agent.drivers import driver_api
 from ovn_bgp_agent.drivers.openstack.utils import frr
+from ovn_bgp_agent.drivers.openstack.utils import frrk8s
 from ovn_bgp_agent.drivers.openstack.utils import ovn
 from ovn_bgp_agent.drivers.openstack.utils import ovs
 from ovn_bgp_agent.drivers.openstack.watchers import base_watcher
@@ -242,7 +243,7 @@ class OVNEVPNDriver(driver_api.AgentDriverBase):
             'vlan': evpn_devices.vlan_name
         }
 
-        frr.vrf_reconfigure(evpn_info, action="add-vrf")
+        frrk8s.vrf_reconfigure(evpn_info, action="add-vrf")
 
         self._connect_evpn_to_ovn(evpn_devices.vrf_name, evpn_devices.veth_vrf,
                                   evpn_devices.veth_ovs, ips, datapath_bridge,
@@ -326,7 +327,7 @@ class OVNEVPNDriver(driver_api.AgentDriverBase):
                                          cr_lrp_info.get('mac'))
 
         evpn_info = {'vni': evpn_vni, 'bgp_as': cr_lrp_info.get('bgp_as')}
-        frr.vrf_reconfigure(evpn_info, action="del-vrf")
+        frrk8s.vrf_reconfigure(evpn_info, action="del-vrf")
 
         try:
             del self.ovn_local_cr_lrps[cr_lrp_port_name]
