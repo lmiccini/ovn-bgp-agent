@@ -20,6 +20,7 @@ import ovn_bgp_agent.privileged.frrk8s
 
 import requests
 import json
+import os
 
 LOG = logging.getLogger(__name__)
 
@@ -29,14 +30,16 @@ def run_frrk8s_config(frr_config_file):
     f = open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r")
     token = f.read()
     f.close()
-    
+
     c = open(frr_config_file, "r")
     snippet = c.read()
     c.close
 
     content = {"spec": {"raw": {"rawConfig": "%s" % snippet}}}
 
-    url = "https://kubernetes.default.svc/apis/frrk8s.metallb.io/v1beta1/namespaces/metallb-system/frrconfigurations/test0"
+    hostname = os.getenv('HOST')
+
+    url = "https://kubernetes.default.svc/apis/frrk8s.metallb.io/v1beta1/namespaces/metallb-system/frrconfigurations/ovnbgpagent-%s" % hostname
     headers={'Authorization': 'Bearer '+token, 'Content-Type': 'application/merge-patch+json'}
     cacert = '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
 
@@ -47,15 +50,3 @@ def run_frrk8s_config(frr_config_file):
                       frr_config_file, e)
         raise
 
-
-#@ovn_bgp_agent.privileged.frrk8s_cmd.entrypoint
-#def run_frrk8s_command(command):
-#
-#    full_args = ['/usr/bin/vtysh', '--vty_socket', constants.FRR_SOCKET_PATH,
-#                 '-c', command]
-#    try:
-#        return processutils.execute(*full_args)[0]
-#    except Exception as e:
-#        LOG.exception("Unable to execute vtysh with %s. Exception: %s",
-#                      full_args, e)
-#        raise
