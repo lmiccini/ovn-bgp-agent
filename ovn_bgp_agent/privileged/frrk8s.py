@@ -18,10 +18,12 @@ from oslo_log import log as logging
 from ovn_bgp_agent import constants
 import ovn_bgp_agent.privileged.frrk8s
 
+import requests
+import json
+
 LOG = logging.getLogger(__name__)
 
 
-@ovn_bgp_agent.privileged.frrk8s_cmd.entrypoint
 def run_frrk8s_config(frr_config_file):
 
     f = open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r")
