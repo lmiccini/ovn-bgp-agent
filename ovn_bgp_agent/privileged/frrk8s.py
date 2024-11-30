@@ -35,11 +35,23 @@ def run_frrk8s_config(frr_config_file):
     snippet = c.read()
     c.close
 
+    podname = os.getenv('HOSTNAME')
+
+    url = "https://kubernetes.default.svc/api/v1/namespaces/openstack/pods/%s" % podname
+    headers={'Authorization': 'Bearer '+token, 'Content-Type': 'application/json'}
+    cacert = '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
+
+    try:
+        r = requests.get(url, headers=headers, verify=cacert)
+        workername = r.json()["spec"]["nodeName"]
+    except Exception as e:
+        LOG.exception("Unable to fetch worker name. Exception: %s", e)
+        raise
+
+
     content = {"spec": {"raw": {"rawConfig": "%s" % snippet}}}
 
-    hostname = os.getenv('HOST')
-
-    url = "https://kubernetes.default.svc/apis/frrk8s.metallb.io/v1beta1/namespaces/metallb-system/frrconfigurations/ovnbgpagent-%s" % hostname
+    url = "https://kubernetes.default.svc/apis/frrk8s.metallb.io/v1beta1/namespaces/metallb-system/frrconfigurations/ovnbgpagent-%s" % workername
     headers={'Authorization': 'Bearer '+token, 'Content-Type': 'application/merge-patch+json'}
     cacert = '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
 
