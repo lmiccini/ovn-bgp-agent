@@ -29,8 +29,7 @@ LOG = logging.getLogger(__name__)
 
 DEFAULT_REDISTRIBUTE = {'connected'}
 
-CONFIGURE_ND_TEMPLATE = '''
-interface {{ intf }}
+CONFIGURE_ND_TEMPLATE = '''interface {{ intf }}
 {% if is_dhcpv6 %}
  ipv6 nd managed-config-flag
 {% endif %}
@@ -42,8 +41,7 @@ interface {{ intf }}
 exit
 '''
 
-ADD_VRF_TEMPLATE = '''
-vrf {{ vrf_name }}
+ADD_VRF_TEMPLATE = '''vrf {{ vrf_name }}
   vni {{ vni }}
 exit-vrf
 
@@ -80,15 +78,13 @@ router bgp {{ bgp_as }} vrf {{ vrf_name }}
 
 '''
 
-DEL_VRF_TEMPLATE = '''
-no vrf {{ vrf_name }}
+DEL_VRF_TEMPLATE = '''no vrf {{ vrf_name }}
 no interface veth-{{ vrf_name }}
 no router bgp {{ bgp_as }} vrf {{ vrf_name }}
 
 '''
 
-LEAK_VRF_TEMPLATE = '''
-router bgp {{ bgp_as }}
+LEAK_VRF_TEMPLATE = '''router bgp {{ bgp_as }}
   address-family ipv4 unicast
     import vrf {{ vrf_name }}
   exit-address-family
