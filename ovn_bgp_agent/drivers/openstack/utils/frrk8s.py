@@ -15,6 +15,7 @@
 import json
 import tempfile
 import os
+import requests
 
 from jinja2 import Template
 from oslo_config import cfg
@@ -87,10 +88,12 @@ no router bgp {{ bgp_as }} vrf {{ vrf_name }}
 LEAK_VRF_TEMPLATE = '''router bgp {{ bgp_as }}
   address-family ipv4 unicast
     import vrf {{ vrf_name }}
+    redistribute connected
   exit-address-family
 
   address-family ipv6 unicast
     import vrf {{ vrf_name }}
+    redistribute connected
   exit-address-family
 
 router bgp {{ bgp_as }} vrf {{ vrf_name }}
@@ -109,6 +112,34 @@ router bgp {{ bgp_as }} vrf {{ vrf_name }}
 
 '''
 
+IP_ADVERTISE = '''apiVersion: frrk8s.metallb.io/v1beta1
+kind: FRRConfiguration
+metadata:
+    name: {{ hostname }}-vips
+    namespace: metallb-system
+spec:
+  bgp:
+    routers:
+    - asn: {{ bgp_as }}
+      neighbors:
+{% for peer in peers %}
+      - address: {{ peer }}
+        asn: {{ bgp_as }}
+        password: {{ password }}
+        holdTime: 1m30s
+        keepaliveTime: 30s
+        toAdvertise:
+          allowed:
+            prefixes:
+{% for ip in ips %}
+            - {{ ip }}/32
+{% endfor %}
+{% endfor %}
+      prefixes:
+{% for ip in ips %}
+      - {{ ip }}/32
+{% endfor %}
+'''
 
 def _get_router_id():
     router_id = os.getenv('ROUTER_ID', '')
@@ -217,3 +248,42 @@ def vrf_reconfigure(evpn_info, action):
     vrf_config = vrf_template.render(**opts)
 
     _run_frrk8s_config_with_tempfile(vrf_config)
+
+
+def ip_advertise(bgp_as, template=IP_ADVERTISE, ips):
+    LOG.info("Injecting IP advertisement via frrconfiguration")
+
+    frr_template = Template(template)
+
+    f = open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r")
+    token = f.read()
+    f.close()
+
+    podname = os.getenv('HOSTNAME')
+
+    url = "https://kubernetes.default.svc/api/v1/namespaces/openstack/pods/%s" % podname
+    headers={'Authorization': 'Bearer '+token, 'Content-Type': 'application/json'}
+    cacert = '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
+
+    try:
+        r = requests.get(url, headers=headers, verify=cacert)
+        workername = r.json()["spec"]["nodeName"]
+    except Exception as e:
+        LOG.exception("Unable to fetch worker name. Exception: %s", e)
+        raise
+
+    url = "https://kubernetes.default.svc/apis/metallb.io/v1beta2/namespaces/metallb-system/bgppeers"
+
+    try:
+        r = requests.get(url, headers=headers, verify=cacert)
+        items=r.json()["items"]
+        peers = [item["spec"]["peerAddress"] for item in items if workername in item["spec"]["nodeSelectors"][0]["matchExpressions"][0]["values"]]
+        password = [item["spec"]["password"] for item in items if workername in item["spec"]["nodeSelectors"][0]["matchExpressions"][0]["values"]][0]
+    except Exception as e:
+        LOG.exception("Unable to fetch peers. Exception: %s", e)
+        raise
+
+
+    frr_config = frr_template.render(bgp_as=bgp_as, hostname=workername, password=password, peers=peers, ips=ips)
+
+
